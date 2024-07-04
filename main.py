@@ -131,20 +131,39 @@ def announce_winner():
         return jsonify({'message': 'Block added', 'winner': data['winner']}), 201
     print(f"Winner block discarded: {winner_block.__dict__}")
     return jsonify({'message': 'Block discarded'}), 400
+import random
+import uuid
 
-@app.route('/simulate_transaction', methods=['GET'])
-def simulate_transaction():
-    to_addr = "some_random_address"
-    amount = "10"
-    timestamp = str(datetime.now())
-    msg = {'transaction_timestamp': timestamp, 'from_addr': public_key, 'to_addr': to_addr, 'amount': amount}
-    signature = blockchain.generate_signature(private_key, msg)
-    signature = signature.hex()
-    transaction = {'message': msg, 'signature': signature}
-    blockchain.unconfirmed_transactions.append(transaction)
-    blockchain.announce_transaction(peers, {'message': msg, 'signature': signature})
-    print(f"Simulated transaction added: {transaction}")
-    return jsonify({'transaction': transaction, 'status': 'Transaction simulated and added to unconfirmed transactions'})
+@app.route('/simulate_transactions', methods=['GET'])
+def simulate_transactions():
+    transactions = []
+    
+    for _ in range(3):
+        to_addr = "random_address_" + str(random.randint(1, 1000))
+        amount = str(random.uniform(1, 100))  # Random amount between 1 and 100
+        fee = str(random.uniform(0.01, 1))  # Random fee between 0.01 and 1
+        timestamp = str(datetime.now())
+        transaction_id = str(uuid.uuid4())
+        
+        msg = {
+            'transaction_id': transaction_id,
+            'transaction_timestamp': timestamp,
+            'from_addr': public_key,
+            'to_addr': to_addr,
+            'amount': amount,
+            'fee': fee
+        }
+        
+        signature = blockchain.generate_signature(private_key, msg).hex()
+        transaction = {'message': msg, 'signature': signature}
+        
+        blockchain.unconfirmed_transactions.append(transaction)
+        blockchain.announce_transaction(peers, transaction)
+        
+        transactions.append(transaction)
+    
+    print(f"Simulated transactions added: {transactions}")
+    return jsonify({'transactions': transactions, 'status': '100 transactions simulated and added to unconfirmed transactions'})
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
