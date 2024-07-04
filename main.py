@@ -5,6 +5,9 @@ from datetime import datetime
 import sys
 import threading, requests
 
+import random
+import uuid
+
 app = Flask(__name__)
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
 app.config['JSON_SORT_KEYS'] = False
@@ -131,8 +134,7 @@ def announce_winner():
         return jsonify({'message': 'Block added', 'winner': data['winner']}), 201
     print(f"Winner block discarded: {winner_block.__dict__}")
     return jsonify({'message': 'Block discarded'}), 400
-import random
-import uuid
+
 
 @app.route('/simulate_transactions', methods=['GET'])
 def simulate_transactions():

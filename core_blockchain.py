@@ -1,9 +1,14 @@
 from hashlib import sha256
 from datetime import datetime
 from ecdsa import SigningKey, SECP256k1, VerifyingKey
-import json
+import json, uuid
 import requests
 from flask import request
+
+# Dummy private and public keys for demonstration purpose
+private_key = 'fc67e176ef44abc9f2539e4bdbf4fa314f0682bbc7260228fac32f78e4beecfe'
+public_key = '0d29d6ef8347672c57f75438a3fefda5dfbd9e9becd6233b7d9a015d2a1827e6607707f4f7dfebf59c20f460f33543110001155140c2d9606a582d5cdda57a12'
+
 
 class Block:
     def __init__(self, index, block_timestamp, transactions, prev_hash, miner, nonce=0):
@@ -44,6 +49,7 @@ class Blockchain:
         self.zeros_difficulty = 6  # Number of leading zeros required for proof of work
         self.unconfirmed_transactions = []  # List to store unconfirmed transactions
         self.chain = []  # List to store blocks in the blockchain
+        self.mining_reward = 3.125  # Define a fixed mining reward
         self.genesis_block()  # Create the genesis block
 
     def genesis_block(self):
@@ -94,23 +100,58 @@ class Blockchain:
         """
         if not self.unconfirmed_transactions:
             return False
-        else:
-            for transaction in self.unconfirmed_transactions:
-                if not self.is_valid_transaction(transaction): 
-                    self.unconfirmed_transactions.remove(transaction)
+        
+        
+        
+        for transaction in self.unconfirmed_transactions:
+            if not self.is_valid_transaction(transaction): 
+                self.unconfirmed_transactions.remove(transaction)
+        
+        # Add a coinbase transaction to reward the miner
+        coinbase_transaction = {
+            'transaction_id': str(uuid.uuid4()),
+            'transaction_timestamp': str(datetime.now()),
+            'from_addr': None,
+            'to_addr': miner,
+            'amount': self.mining_reward,
+            'fee': 0
+        }
+        coinbase_transaction_signature = self.generate_signature(private_key, coinbase_transaction).hex()
+        coinbase_transaction['signature'] = coinbase_transaction_signature
+        
+        # Include the coinbase transaction at the beginning of the list of transactions
+        transactions_to_include = [coinbase_transaction] + self.unconfirmed_transactions[:]
 
-            new_block = Block(index=self.last_block.index + 1, block_timestamp=str(datetime.now()),
-                              transactions=self.unconfirmed_transactions, prev_hash=self.last_block.hash, miner=miner)
+        new_block = Block(index=self.last_block.index + 1, block_timestamp=str(datetime.now()),
+                          transactions=transactions_to_include, prev_hash=self.last_block.hash, miner=miner)
 
+        hash_val = new_block.hash
+        print("started mining", hash_val)
+        while not hash_val.startswith('0' * self.zeros_difficulty):
+            new_block.nonce += 1
             hash_val = new_block.hash
-            print("started mining", hash_val)
-            while not hash_val.startswith('0' * self.zeros_difficulty):
-                new_block.nonce += 1
-                hash_val = new_block.hash
+        
+        print("finished mining", new_block.nonce, hash_val)
+        self.unconfirmed_transactions = []
+        return new_block
+    
+        # else:
+        #     for transaction in self.unconfirmed_transactions:
+        #         if not self.is_valid_transaction(transaction): 
+        #             self.unconfirmed_transactions.remove(transaction)
+
+        #     new_block = Block(index=self.last_block.index + 1, block_timestamp=str(datetime.now()),
+        #                       transactions=self.unconfirmed_transactions, prev_hash=self.last_block.hash, miner=miner)
+
+        #     hash_val = new_block.hash
+        #     print("started mining", hash_val)
+        #     while not hash_val.startswith('0' * self.zeros_difficulty):
+        #         new_block.nonce += 1
+        #         hash_val = new_block.hash
             
-            print("finished mining", new_block.nonce, hash_val)
-            self.unconfirmed_transactions = []
-            return new_block
+        #     print("finished mining", new_block.nonce, hash_val)
+        #     self.unconfirmed_transactions = []
+        #     return new_block
     
     def is_valid_proof(self, block):
         """
