@@ -6,7 +6,7 @@ import sys
 import threading, requests
 
 import random
-import uuid
+import uuid, time
 
 app = Flask(__name__)
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
@@ -166,6 +166,31 @@ def simulate_transactions():
     
     print(f"Simulated transactions added: {transactions}")
     return jsonify({'transactions': transactions, 'status': '100 transactions simulated and added to unconfirmed transactions'})
+
+def automate_mining_cycle():
+    while True:
+        print('-------------------------- Starting New Cycle --------------------')
+        simulate_transactions()
+        time.sleep(4)
+        start_mining()
+        time.sleep(300)
+    return 0
+    
+
+@app.route('/start_simulation', methods=['GET'])
+def start_simulation():
+
+    # Start the automation in a separate thread
+    # simulation_thread = threading.Thread(target=automate_mining_cycle)
+    # simulation_thread.start()
+    start_sim = automate_mining_cycle()
+    return "Simulation started and cycle repeats every 300 seconds"
+    # while True:
+    #     simulate_transactions()
+    #     start_mining()
+    #     time.sleep(120)
+    
+
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
