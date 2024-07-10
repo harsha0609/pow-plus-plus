@@ -1,4 +1,5 @@
 import json
+import csv
 from collections import defaultdict
 
 # Function to calculate rewards and count blocks for each miner
@@ -17,11 +18,6 @@ def calculate_rewards_and_blocks(blockchain_data):
         # Calculate block reward (assuming fixed 3.125 for each block)
         reward = 3.125
         
-        # Add transaction fees
-        for transaction in block["transactions"]:
-            if "fee" in transaction:
-                reward += float(transaction["fee"])
-        
         # Accumulate rewards and count blocks for the miner
         rewards[miner] += reward
         blocks_added[miner] += 1
@@ -36,9 +32,20 @@ with open(file_path, 'r') as file:
 # Calculate rewards and count blocks for each miner
 miner_rewards, miner_blocks_added = calculate_rewards_and_blocks(blockchain_data)
 
-# Print rewards and number of blocks added for each miner
-for miner_id in range(5000, 5050):
-    miner_str = str(miner_id)
-    reward = miner_rewards[miner_str]
-    blocks = miner_blocks_added[miner_str]
-    print(f"Miner {miner_str}: Reward {reward}, Blocks Added: {blocks}")
+# Write to CSV file
+csv_file = 'miner_rewards_blocks.csv'
+fieldnames = ["Miner ID", "Reward", "Blocks Added"]
+
+with open(csv_file, 'w', newline='') as csvfile:
+    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+    writer.writeheader()
+    
+    for miner_id in range(5000, 5050):
+        miner_str = str(miner_id)
+        writer.writerow({
+            "Miner ID": miner_str,
+            "Reward": miner_rewards[miner_str],
+            "Blocks Added": miner_blocks_added[miner_str]
+        })
+
+print(f"CSV file '{csv_file}' has been successfully created with miner rewards and blocks added.")
