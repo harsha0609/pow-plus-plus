@@ -7,6 +7,8 @@ import threading, requests
 
 import random
 import uuid, time
+from ecdsa import SigningKey, SECP256k1
+
 
 app = Flask(__name__)
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
@@ -18,12 +20,26 @@ blockchain = Blockchain()
 private_key = 'fc67e176ef44abc9f2539e4bdbf4fa314f0682bbc7260228fac32f78e4beecfe'
 public_key = '0d29d6ef8347672c57f75438a3fefda5dfbd9e9becd6233b7d9a015d2a1827e6607707f4f7dfebf59c20f460f33543110001155140c2d9606a582d5cdda57a12'
 
+
+def generate_key_pair():
+    private_key = SigningKey.generate(curve=SECP256k1)
+    public_key = private_key.get_verifying_key()
+    return private_key, public_key
+
+# Generate key pairs for miners
+miners_keys = {
+    'miner1': generate_key_pair(),
+    'miner2': generate_key_pair(),
+    'miner3': generate_key_pair()
+}
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    if request.method == 'POST':
-        return url_for('process_transaction')
-    else:
-        return render_template('make_transaction.html')
+    return f"Miner {port} is running"
+    # if request.method == 'POST':
+    #     return url_for('process_transaction')
+    # else:
+    #     return render_template('make_transaction.html')
 
 @app.route('/chain', methods=['GET'])
 def display_chain():
@@ -173,7 +189,7 @@ def automate_mining_cycle():
         simulate_transactions()
         time.sleep(4)
         start_mining()
-        time.sleep(300)
+        time.sleep(150)
     return 0
     
 
@@ -184,12 +200,12 @@ def start_simulation():
     # simulation_thread = threading.Thread(target=automate_mining_cycle)
     # simulation_thread.start()
     start_sim = automate_mining_cycle()
-    return "Simulation started and cycle repeats every 300 seconds"
+    return "Simulation started and cycle repeats every 150 seconds"
     # while True:
     #     simulate_transactions()
     #     start_mining()
     #     time.sleep(120)
-    
+    x
 
 
 if __name__ == "__main__":

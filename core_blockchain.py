@@ -46,7 +46,7 @@ class Blockchain:
         """
         Initialize the blockchain with its attributes.
         """
-        self.zeros_difficulty = 6  # Number of leading zeros required for proof of work
+        self.zeros_difficulty = 4  # Number of leading zeros required for proof of work
         self.unconfirmed_transactions = []  # List to store unconfirmed transactions
         self.chain = []  # List to store blocks in the blockchain
         self.mining_reward = 3.125  # Define a fixed mining reward
