@@ -4,8 +4,6 @@ from ecdsa import SigningKey, SECP256k1, VerifyingKey
 import json, uuid
 import requests
 from flask import request
-from config_peers import peers
-
 
 # Dummy private and public keys for demonstration purpose
 private_key = 'fc67e176ef44abc9f2539e4bdbf4fa314f0682bbc7260228fac32f78e4beecfe'
@@ -13,7 +11,7 @@ public_key = '0d29d6ef8347672c57f75438a3fefda5dfbd9e9becd6233b7d9a015d2a1827e660
 
 
 class Block:
-    def __init__(self, index, block_timestamp, transactions, prev_hash, miner, nonce=0):
+    def __init__(self, index, block_timestamp, transactions, prev_hash, miner, nonce=0, prevcheckhash=None):
         """
         Initialize a block with its attributes.
 
@@ -25,12 +23,14 @@ class Block:
             miner (str): The identifier of the miner who mined the block.
             nonce (int): Nonce used in mining.
         """
+        
         self.index = index
         self.block_timestamp = block_timestamp
         self.transactions = transactions
         self.prev_hash = prev_hash
         self.miner = miner
         self.nonce = nonce
+        self.prevcheckhash = prevcheckhash
 
     @property 
     def hash(self):
@@ -40,7 +40,8 @@ class Block:
         Returns:
             str: Hash of the block.
         """
-        block_string = str(self.index) + str(self.block_timestamp) + str(self.transactions) + str(self.prev_hash) + str(self.miner) + str(self.nonce)
+
+        block_string = str(self.index) + str(self.block_timestamp) + str(self.transactions) + str(self.prev_hash) + str(self.miner) + str(self.nonce) + str(self.prevcheckhash)
         return sha256(block_string.encode()).hexdigest()
 
 class Blockchain:
@@ -48,18 +49,40 @@ class Blockchain:
         """
         Initialize the blockchain with its attributes.
         """
-        self.zeros_difficulty = 4  # Number of leading zeros required for proof of work
-        self.unconfirmed_transactions = []  # List to store unconfirmed transactions
-        self.chain = []  # List to store blocks in the blockchain
-        self.mining_reward = 3.125  # Define a fixed mining reward
-        self.genesis_block()  # Create the genesis block
+        self.zeros_difficulty = 16  
+        self.unconfirmed_transactions = []
+        self.chain = []
+        self.mining_rewards = {
+            'checkpoint1': 0.05,
+            'checkpoint2': 0.045,
+            'checkpoint3': 0.03,
+            'final': 3
+        }
+        self.checkpoint_limits = {
+            'checkpoint1': 50,
+            'checkpoint2': 25,
+            'checkpoint3': 12,
+            'final': 1
+        }
+        self.checkpoints_mined = {
+            'checkpoint1': [],
+            'checkpoint2': [],
+            'checkpoint3': [],
+            'final': []
+        }
+        self.checkpoint_difficulties = {
+            0: self.zeros_difficulty // 8,  # Checkpoint 1: 1/8 difficulty
+            1: self.zeros_difficulty // 4,  # Checkpoint 2: 1/4 difficulty
+            2: self.zeros_difficulty // 2,  # Checkpoint 3: 1/2 difficulty
+            3: self.zeros_difficulty        # Final Checkpoint: full difficulty
+        }
+        self.genesis_block()
+        self.last_main_block = None
 
     def genesis_block(self):
-        """
-        Create the genesis block, which is the first block in the blockchain.
-        """
-        g_block = Block(0, str(0), [], 0, 'genesis_miner', 0)
-        self.chain.append(g_block)
+        genesis_block = Block(0, str(datetime.now()), [], "0", "genesis")
+        self.chain.append(genesis_block)
+        self.last_main_block = genesis_block
 
     @property 
     def last_block(self):
@@ -73,6 +96,64 @@ class Blockchain:
             return self.chain[-1]
         else:
             return False
+
+    def last_checkpoint_hash(self, miner):
+        for block in reversed(self.chain):
+            if block.miner == miner:
+                return block.hash
+        return None
+      
+    def create_checkpoint_block(self, miner, checkpoint_level):
+        if not self.unconfirmed_transactions:
+            return False
+        
+        # Add coinbase transaction for checkpoint reward
+        reward = self.mining_rewards[checkpoint_level]
+        coinbase_transaction = {
+            'transaction_id': str(uuid.uuid4()),
+            'transaction_timestamp': str(datetime.now()),
+            'from_addr': None,
+            'to_addr': miner,
+            'amount': reward,
+            'fee': 0
+        }
+        coinbase_transaction_signature = self.generate_signature(private_key, coinbase_transaction).hex()
+        coinbase_transaction['signature'] = coinbase_transaction_signature
+
+        transactions_to_include = [coinbase_transaction] + self.unconfirmed_transactions[:]
+
+        new_block = Block(
+            index=self.last_block().index + 1,
+            block_timestamp=str(datetime.now()),
+            transactions=transactions_to_include,
+            prev_hash=self.last_main_block.hash,
+            miner=miner,
+            prevcheckhash=self.last_checkpoint_hash(miner)
+        )
+
+        # Adjust difficulty for checkpoint
+        difficulty = self.checkpoint_difficulties[checkpoint_level]
+        hash_val = new_block.hash
+        while not hash_val.startswith('0' * difficulty):
+            new_block.nonce += 1
+            hash_val = new_block.hash
+
+        return new_block
+
+    def announce_checkpoint_block(self, peers, block):
+        level = f'checkpoint{len(block.transactions) - 1}'
+        if level in self.checkpoint_limits:
+            for peer in peers:
+                try:
+                    response = requests.post(peer + 'announce_checkpoint_block', json={'block': block.__dict__})
+                    if response.status_code == 201:
+                        print(f"Checkpoint block announced to {peer}: {block.__dict__}")
+                    else:
+                        print(f"Failed to announce checkpoint block to {peer}")
+                except requests.exceptions.RequestException as e:
+                    print(f"Error announcing checkpoint block to peer {peer}: {e}")
+        else:
+            print(f"Invalid checkpoint level: {level}")
     
     def add_block(self, block):
         """
@@ -84,76 +165,96 @@ class Blockchain:
         Returns:
             bool: True if the block was added successfully, False otherwise.
         """
-        if self.last_block and self.last_block.hash == block.prev_hash:
+        if self.last_main_block and self.last_main_block.hash == block.prev_hash:
             if self.is_valid_proof(block):
                 self.chain.append(block)
                 return True
         return False
-
-    def mine(self, miner):
+    
+    def add_checkpoint_block(self, block):
         """
-        Mine a new block by adding all unconfirmed transactions and finding a valid proof of work.
+        Add a checkpoint block to the blockchain if the limit for its type is not met.
 
         Args:
-            miner (str): The identifier of the miner.
+            block (Block): Checkpoint block to be added to the blockchain.
 
         Returns:
-            Block or False: The mined block if successful, False if there are no unconfirmed transactions.
+            bool: True if the checkpoint block was added successfully, False otherwise.
         """
-        if not self.unconfirmed_transactions:
+        checkpoint_type = self.get_checkpoint_type(block)  
+        
+        if len(self.checkpoints_mined[checkpoint_type]) >= self.checkpoint_limits[checkpoint_type]:
+            print(f"{checkpoint_type.capitalize()} limit reached. Block discarded.")
             return False
         
+        if self.is_valid_checkpoint_block(block):
+            self.chain.append(block)
+            self.checkpoints_mined[checkpoint_type].append(block.miner)
+            return True
         
-        
-        for transaction in self.unconfirmed_transactions:
-            if not self.is_valid_transaction(transaction): 
-                self.unconfirmed_transactions.remove(transaction)
-        
-        # Add a coinbase transaction to reward the miner
-        coinbase_transaction = {
-            'transaction_id': str(uuid.uuid4()),
-            'transaction_timestamp': str(datetime.now()),
-            'from_addr': None,
-            'to_addr': miner,
-            'amount': self.mining_reward,
-            'fee': 0
-        }
-        coinbase_transaction_signature = self.generate_signature(private_key, coinbase_transaction).hex()
-        coinbase_transaction['signature'] = coinbase_transaction_signature
-        
-        # Include the coinbase transaction at the beginning of the list of transactions
-        transactions_to_include = [coinbase_transaction] + self.unconfirmed_transactions[:]
-
-        new_block = Block(index=self.last_block.index + 1, block_timestamp=str(datetime.now()),
-                          transactions=transactions_to_include, prev_hash=self.last_block.hash, miner=miner)
-
-        hash_val = new_block.hash
-        print("started mining", hash_val)
-        while not hash_val.startswith('0' * self.zeros_difficulty):
-            new_block.nonce += 1
-            hash_val = new_block.hash
-        
-        print("finished mining", new_block.nonce, hash_val)
-        self.unconfirmed_transactions = []
-        return new_block
+        return False
     
-        # else:
-        #     for transaction in self.unconfirmed_transactions:
-        #         if not self.is_valid_transaction(transaction): 
-        #             self.unconfirmed_transactions.remove(transaction)
 
-        #     new_block = Block(index=self.last_block.index + 1, block_timestamp=str(datetime.now()),
-        #                       transactions=self.unconfirmed_transactions, prev_hash=self.last_block.hash, miner=miner)
+    def is_valid_checkpoint_block(self, block):
+        """
+        Validate if the checkpoint block meets the criteria to be added.
 
-        #     hash_val = new_block.hash
-        #     print("started mining", hash_val)
-        #     while not hash_val.startswith('0' * self.zeros_difficulty):
-        #         new_block.nonce += 1
-        #         hash_val = new_block.hash
+        Args:
+            block (Block): Checkpoint block to be validated.
+
+        Returns:
+            bool: True if the checkpoint block is valid, False otherwise.
+        """
+        if self.last_block and self.last_block.hash == block.prev_hash:
+            if self.is_valid_proof(block):
+                return True
+        return False
+    
+    def get_checkpoint_type(self, block):
+        """
+        Determine the type of checkpoint based on block properties.
+
+        Args:
+            block (Block): Checkpoint block.
+
+        Returns:
+            str: Type of checkpoint ('checkpoint1', 'checkpoint2', 'checkpoint3', 'final').
+        """
+        # Implement logic to determine checkpoint type based on block properties
+        # Example: Check nonce or index to determine checkpoint type
+        if block.nonce < self.zeros_difficulty // 8:
+            return 'checkpoint1'
+        elif block.nonce < self.zeros_difficulty // 4:
+            return 'checkpoint2'
+        elif block.nonce < self.zeros_difficulty // 2:
+            return 'checkpoint3'
+        else:
+            return 'final'
+
+    def mine(self, miner):
+        checkpoints = [1/8, 1/4, 1/2, 1]
+        for i, checkpoint in enumerate(checkpoints):
+            level = f'checkpoint{i+1}' if i < 3 else 'final'
+            if i < 3 and len(self.checkpoints_mined[level]) >= self.checkpoint_limits[level]:
+                print(f"{level.capitalize()} limit reached. Miner {miner} cannot add more blocks at this checkpoint.")
+                continue
             
-        #     print("finished mining", new_block.nonce, hash_val)
-        #     self.unconfirmed_transactions = []
-        #     return new_block
+            new_block = self.create_checkpoint_block(miner, i)
+            if new_block:
+                self.chain.append(new_block)
+                print(f"Checkpoint {level} block mined successfully: {new_block.__dict__}")
+                if i < 3:
+                    self.checkpoints_mined[level].append(miner)
+                if level == 'final':
+                    self.unconfirmed_transactions = []
+                    return new_block
+                
+                if i < 3 and len(self.checkpoints_mined[level]) >= self.checkpoint_limits[level]:
+                    print(f"{level.capitalize()} limit reached after adding the block. Miner {miner} should consider dropping out.")
+                    continue
+        
+        return False
+        
     
     def is_valid_proof(self, block):
         """

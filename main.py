@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, url_for, render_template
-from core_blockchain import Block, Blockchain
+# from core_blockchain import Block, Blockchain
+from core_blockchain_pow_pp import Block, Blockchain
 from config_peers import peers
 from datetime import datetime
 import sys
@@ -64,6 +65,33 @@ def add_block():
         return "The block was discarded by the node", 400
     print(f"Block added to chain: {block.__dict__}")
     return "Block added to the chain", 201
+
+@app.route('/add_checkpoint_block', methods=['POST'])
+def add_checkpoint_block():
+    data = request.get_json()
+    block_data = data.get('block')
+    
+    if not block_data:
+        return jsonify({'message': 'Invalid or missing block data'}), 400
+    
+    # Example: Create a Block object from the received data
+    block = Block(
+        index=block_data['index'],
+        block_timestamp=block_data['block_timestamp'],
+        transactions=block_data['transactions'],
+        prev_hash=block_data['prev_hash'],
+        miner=block_data['miner'],
+        nonce=block_data['nonce']
+    )
+    
+    added = blockchain.add_checkpoint_block(block)
+    
+    if added:
+        print(f"Checkpoint block added from peer: {block.__dict__}")
+        return jsonify({'message': 'Checkpoint block added to the chain'}), 201
+    else:
+        print(f"Checkpoint block from peer discarded: {block.__dict__}")
+        return jsonify({'message': 'Checkpoint block discarded by the node'}), 400
 
 @app.route('/process_transaction', methods=['POST'])
 def process_transaction():

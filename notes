@@ -1,0 +1,7 @@
+- last block should point to last main block and not checkpoint block
+- empty the checkpoint's details once the new main block is added
+- write/update add block logic for final block
+- parallel chains to start ( for this all the main lists will be 2D lists with 10 internal lists for each chain )
+- Once done, start testing with manual simulation
+- start new competition and announce to miners as soon as new main block is added
+
