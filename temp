@@ -1,0 +1,46 @@
+branching - independent?? --------> P0
+1. Genesis block is common - No
+2. Last slide - Clear
+3. Reward mechanism (how bitcoin is rewarded) ---> P0
+
+coinbase transaction ---> P0
+
+checkpoint pool - implementation (checkpoint block)
+
+
+check for correalation for checkpoint and progress in other papers ---> P1
+
+can we neglect the concept different start times
+
+can we start all the competitions at the same time
+
+
+
+10-june
+
+coinbase transaction structure and working
+check for coinbase implementation
+how to verify checkpoint correctness
+
+11 june
+
+evaluating the performance 
+energy usage, tps
+check for testnetworks
+
+
+
+- Coinbase transaction has the reward, so its not assigned, rather the miner includes the block reward as part of the coinbase transaction.
+- This reward is credited to an address specified by the miner in the coinbase transaction.
+
+
+formula for iteratively reducing - function
+word for iteration (epochs or batch)
+level 0 arch diagram - all 10 chains, checkpoint blocks, time(t = 0,1....)
+level 1 arch diagram - from whatsapp
+level 2 arch diagram - elaborate the winner minner's all checkpoint blocks and mined block
+explain with actual examples ( full protocol with scenarios )
+
+
+check 
+
