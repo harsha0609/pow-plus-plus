@@ -58,7 +58,7 @@ def chain_conflict():
 def add_block():
     block_data = request.get_json()
     blockchain.unconfirmed_transactions = []
-    block = Block(block_data['index'], block_data['block_timestamp'], block_data['transactions'], block_data['prev_hash'], block_data['miner'], block_data['nonce'])
+    block = Block(block_data['index'], block_data['block_timestamp'], block_data['transactions'], block_data['prev_hash'], block_data['miner'], block_data['nonce'], block_data['prevcheckhash'])
     added = blockchain.add_block(block)
     if not added:
         print(f"Block discarded: {block.__dict__}")
@@ -81,7 +81,8 @@ def add_checkpoint_block():
         transactions=block_data['transactions'],
         prev_hash=block_data['prev_hash'],
         miner=block_data['miner'],
-        nonce=block_data['nonce']
+        nonce=block_data['nonce'],
+        prevcheckhash = block_data['prevcheckhash']
     )
     
     added = blockchain.add_checkpoint_block(block)

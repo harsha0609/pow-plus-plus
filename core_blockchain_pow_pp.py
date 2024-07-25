@@ -4,6 +4,8 @@ from ecdsa import SigningKey, SECP256k1, VerifyingKey
 import json, uuid
 import requests
 from flask import request
+from config_peers import peers
+
 
 # Dummy private and public keys for demonstration purpose
 private_key = 'fc67e176ef44abc9f2539e4bdbf4fa314f0682bbc7260228fac32f78e4beecfe'
@@ -141,11 +143,11 @@ class Blockchain:
         return new_block
 
     def announce_checkpoint_block(self, peers, block):
-        level = f'checkpoint{len(block.transactions) - 1}'
+        level, level_num = self.get_checkpoint_type(block)
         if level in self.checkpoint_limits:
             for peer in peers:
                 try:
-                    response = requests.post(peer + 'announce_checkpoint_block', json={'block': block.__dict__})
+                    response = requests.post(peer + 'add_checkpoint_block', json={'block': block.__dict__})
                     if response.status_code == 201:
                         print(f"Checkpoint block announced to {peer}: {block.__dict__}")
                     else:
@@ -166,7 +168,7 @@ class Blockchain:
             bool: True if the block was added successfully, False otherwise.
         """
         if self.last_main_block and self.last_main_block.hash == block.prev_hash:
-            if self.is_valid_proof(block):
+            if self.is_valid_proof(block, 3):
                 self.chain.append(block)
                 return True
         return False
@@ -181,13 +183,13 @@ class Blockchain:
         Returns:
             bool: True if the checkpoint block was added successfully, False otherwise.
         """
-        checkpoint_type = self.get_checkpoint_type(block)  
+        checkpoint_type, checkpoint_num = self.get_checkpoint_type(block)  
         
         if len(self.checkpoints_mined[checkpoint_type]) >= self.checkpoint_limits[checkpoint_type]:
             print(f"{checkpoint_type.capitalize()} limit reached. Block discarded.")
             return False
         
-        if self.is_valid_checkpoint_block(block):
+        if self.is_valid_checkpoint_block(block, checkpoint_num):
             self.chain.append(block)
             self.checkpoints_mined[checkpoint_type].append(block.miner)
             return True
@@ -195,7 +197,7 @@ class Blockchain:
         return False
     
 
-    def is_valid_checkpoint_block(self, block):
+    def is_valid_checkpoint_block(self, block, checkpoint_num):
         """
         Validate if the checkpoint block meets the criteria to be added.
 
@@ -205,8 +207,8 @@ class Blockchain:
         Returns:
             bool: True if the checkpoint block is valid, False otherwise.
         """
-        if self.last_block and self.last_block.hash == block.prev_hash:
-            if self.is_valid_proof(block):
+        if self.last_block and self.last_checkpoint_hash == block.prev_hash:
+            if self.is_valid_proof(block, checkpoint_num):
                 return True
         return False
     
@@ -223,13 +225,13 @@ class Blockchain:
         # Implement logic to determine checkpoint type based on block properties
         # Example: Check nonce or index to determine checkpoint type
         if block.nonce < self.zeros_difficulty // 8:
-            return 'checkpoint1'
+            return 'checkpoint1', 0
         elif block.nonce < self.zeros_difficulty // 4:
-            return 'checkpoint2'
+            return 'checkpoint2', 1
         elif block.nonce < self.zeros_difficulty // 2:
-            return 'checkpoint3'
+            return 'checkpoint3', 2
         else:
-            return 'final'
+            return 'final', 3
 
     def mine(self, miner):
         checkpoints = [1/8, 1/4, 1/2, 1]
@@ -241,10 +243,11 @@ class Blockchain:
             
             new_block = self.create_checkpoint_block(miner, i)
             if new_block:
-                self.chain.append(new_block)
+                # self.chain.append(new_block)
                 print(f"Checkpoint {level} block mined successfully: {new_block.__dict__}")
                 if i < 3:
-                    self.checkpoints_mined[level].append(miner)
+                    # self.checkpoints_mined[level].append(miner)
+                    self.announce_checkpoint_block(peers, new_block)
                 if level == 'final':
                     self.unconfirmed_transactions = []
                     return new_block
@@ -256,7 +259,7 @@ class Blockchain:
         return False
         
     
-    def is_valid_proof(self, block):
+    def is_valid_proof(self, block, checkpoint_difficulties):
         """
         Check if the hash of a block meets the proof of work requirement.
 
@@ -266,7 +269,7 @@ class Blockchain:
         Returns:
             bool: True if the block hash meets the proof of work requirement, False otherwise.
         """
-        return block.hash.startswith('0' * self.zeros_difficulty)
+        return block.hash.startswith('0' * self.checkpoint_difficulties[checkpoint_difficulties])
 
     def is_valid_chain(self):
         """
@@ -276,7 +279,7 @@ class Blockchain:
             bool: True if the blockchain is valid, False otherwise.
         """
         for i in range(1, len(self.chain)):
-            if not self.is_valid_proof(self.chain[i]):
+            if not self.is_valid_proof(self.chain[i], 3):
                 return False
             if self.chain[i].prev_hash != self.chain[i - 1].hash:
                 return False

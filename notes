@@ -4,4 +4,4 @@
 - parallel chains to start ( for this all the main lists will be 2D lists with 10 internal lists for each chain )
 - Once done, start testing with manual simulation
 - start new competition and announce to miners as soon as new main block is added
-
+- limit the transactions to be taken by the miner
