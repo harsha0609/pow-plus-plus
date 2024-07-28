@@ -1,0 +1,46 @@
+
+
+
+	
+
+
+Initialize Blockchain
+Create Genesis Block
+Setup Checkpoints (with different difficulties)
+
+While True:
+    For Each Checkpoint Level:
+        Check Limits:
+            If number of blocks at this level >= limit:
+                Notify Miner (Cannot add more blocks at this level)
+                Skip to Next Checkpoint Level
+        
+        Create New Block:
+            Collect Transactions
+            Add Reward Transaction for Miner
+            Define Block Properties:
+                - Index
+                - Timestamp
+                - Previous Hash
+                - Checkpoint Hash
+                - Miner
+                - Difficulty
+            Set Nonce = 0
+            
+            While True:
+                Compute Block Hash
+                If Hash Meets Checkpoint Difficulty Criteria:
+                    If Not Final Checkpoint:
+                        Broadcast Checkpoint Block to Network
+                        Record Miner for this Checkpoint
+                        Proceed to Next Checkpoint Level
+                    Else:
+                        Clear Unconfirmed Transactions
+                        Add Final Block to Blockchain
+                        Broadcast Final Block to Network
+                    Break Loop
+                Else:
+                    Increment Nonce
+
+    If No Block Was Mined:
+        Return False (No new block created)
