@@ -78,8 +78,8 @@ class Blockchain:
             2: self.zeros_difficulty // 2,  # Checkpoint 3: 1/2 difficulty
             3: self.zeros_difficulty        # Final Checkpoint: full difficulty
         }
-        self.genesis_block()
         self.last_main_block = None
+        self.genesis_block()
 
     def genesis_block(self):
         genesis_block = Block(0, str(datetime.now()), [], "0", "genesis")
