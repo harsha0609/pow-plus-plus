@@ -8,7 +8,7 @@ from config_peers import peers
 
 
 # Dummy private and public keys for demonstration purpose
-private_key = 'fc67e176ef44abc9f2539e4bdbf4fa314f0682bbc7260228fac32f78e4beecfe'
+private_key = 'fc67e176ef44abc9f2539e4bdbf4fa314f0682bbc726022fac32f78e4beecfe'
 public_key = '0d29d6ef8347672c57f75438a3fefda5dfbd9e9becd6233b7d9a015d2a1827e6607707f4f7dfebf59c20f460f33543110001155140c2d9606a582d5cdda57a12'
 
 

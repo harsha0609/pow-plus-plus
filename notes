@@ -5,3 +5,23 @@
 - Once done, start testing with manual simulation
 - start new competition and announce to miners as soon as new main block is added
 - limit the transactions to be taken by the miner
+
+
+Assumptions slide
+Advantages slide
+all miners vs rewards and vs blocks
+update axis values
+show the number of miners also in the last graph
+timestamp for 16 difficulty, time per block
+
+
+number of hashes calculation for pow and pow++
+
+
+
+next steps
+
+- architecture with diagram and explanations
+- block structure and explanation
+- checkpoint block structure
+- all diagram
